@@ -21,6 +21,27 @@ func AddCompetition(q Querier, competition *Competition) (string, error) {
 	return id, nil
 }
 
+// UPDATE
+
+// one
+func UpdateCompetition(q Querier, competition *Competition) (string, error) {
+	var id string
+
+	row := q.QueryRowx("UPDATE competition "+
+		"SET competition_name = $1, "+
+		"event_status = $2, "+
+		"event_date = $3 "+
+		"WHERE competition_id = $4 "+
+		"RETURNING competition_id",
+		competition.CompetitionName, competition.EventStatus, competition.EventDate, competition.CompetitionId)
+
+	if err := row.Scan(&id); err != nil {
+		return "", fmt.Errorf("UpdateCompetition: %v", err)
+	}
+
+	return id, nil
+}
+
 // SELECT
 
 // many
@@ -48,12 +69,12 @@ func AllCompetitions(q Querier) ([]Competition, error) {
 
 // one
 
-func OneCompetition(q Querier, competitionId string) (Competition, error) {
+func OneCompetition(q Querier, competitionId string) (*Competition, error) {
 	var competition Competition
 
 	err := q.Get(&competition, "SELECT * FROM competition WHERE competition_id = $1", competitionId)
 	if err != nil {
-		return competition, fmt.Errorf("OneCompetition %s: %v", competitionId, err)
+		return nil, fmt.Errorf("OneCompetition %s: %v", competitionId, err)
 	}
-	return competition, nil
+	return &competition, nil
 }

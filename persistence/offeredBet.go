@@ -33,17 +33,38 @@ func OfferedBetsByCompetiton(q Querier, competitionId string) ([]OfferedBet, err
 	return obs, nil
 }
 
+// UPDATE
+
+func UpdateOfferedBet(q Querier, ob *OfferedBet) (int, error) {
+	var id int
+
+	row := q.QueryRowx("UPDATE offered_bet "+
+		"SET offered_bet_name = $1, "+
+		"outcome1 = $2, outcome1odds = $3, "+
+		"outcome2 = $4, outcome2odds = $5, "+
+		"event_date = $6, event_status = $7, point_spread = $8 "+
+		"WHERE = $9 "+
+		"RETURNING offered_bet_id",
+		ob.OfferedBetName, ob.Outcome1, ob.Outcome1Odds, ob.Outcome2, ob.Outcome2Odds, ob.EventDate, ob.EventStatus, ob.PointSpread, ob.CompetitionId)
+
+	if err := row.Scan(&id); err != nil {
+		return 0, fmt.Errorf("updateOfferedBet: %v", err)
+	}
+
+	return id, nil
+}
+
 // SELECT
 
 // one
-func OneOfferedBet(q Querier, offeredBetId int) (OfferedBet, error) {
+func OneOfferedBet(q Querier, offeredBetId int) (*OfferedBet, error) {
 	var ob OfferedBet
 
 	err := q.Get(&ob, "SELECT * FROM offered_bet WHERE offered_bet_id = $1", offeredBetId)
 	if err != nil {
-		return ob, fmt.Errorf("OneOfferedBet %d: %v", offeredBetId, err)
+		return nil, fmt.Errorf("OneOfferedBet %d: %v", offeredBetId, err)
 	}
-	return ob, nil
+	return &ob, nil
 }
 
 // partial

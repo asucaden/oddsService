@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/asucaden/goBet/auth"
+	"github.com/asucaden/oddsService/auth"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 )

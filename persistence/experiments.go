@@ -1,7 +1,6 @@
 package persistence
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"os"
@@ -9,8 +8,8 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-func Experiments(db *sql.DB) {
-	users, err := AllUsers(db)
+func Experiments(q Querier) {
+	users, err := AllUsers(q)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -21,7 +20,7 @@ func Experiments(db *sql.DB) {
 	}
 
 	// Print out all the bets for user X
-	bets, err := BetsByUser(db, 2)
+	bets, err := BetsByUser(q, 2)
 	if err != nil {
 		log.Fatal(err)
 		os.Exit(1)

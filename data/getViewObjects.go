@@ -3,7 +3,7 @@ package data
 import (
 	"log"
 
-	"github.com/asucaden/oddsService/persistence"
+	"github.com/asucaden/goBet/persistence"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 )

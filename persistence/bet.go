@@ -1,18 +1,16 @@
 package persistence
 
 import (
-	"database/sql"
 	"fmt"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/jmoiron/sqlx"
 )
 
 // INSERT
-func AddBet(db *sqlx.DB, bet *Bet) (int, error) {
+func AddBet(q Querier, bet *Bet) (int, error) {
 	var id int
 
-	row := db.QueryRow("INSERT INTO bet (bet_status, amount1, outcome1odds, user1agreed, user1id, amount2, outcome2odds, user2agreed, user2id, offered_bet_id, customized, settled, point_spread)"+
+	row := q.QueryRowx("INSERT INTO bet (bet_status, amount1, outcome1odds, user1agreed, user1id, amount2, outcome2odds, user2agreed, user2id, offered_bet_id, customized, settled, point_spread)"+
 		"VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)"+
 		"RETURNING bet_id",
 		bet.BetStatus, bet.Amount1, bet.Outcome1Odds, bet.User1Agreed, bet.User1Id, bet.Amount2, bet.Outcome2Odds, bet.User2Agreed, bet.User2Id, bet.OfferedBetId, bet.Customized, bet.Settled, bet.PointSpread)
@@ -25,7 +23,7 @@ func AddBet(db *sqlx.DB, bet *Bet) (int, error) {
 }
 
 // UPDATE
-func AgreeToBet(db *sqlx.DB, betId int, userN int, agreed bool) (int, error) {
+func AgreeToBet(q Querier, betId int, userN int, agreed bool) (int, error) {
 	var id int
 	var userNagreed string
 	var statusUpdate string
@@ -43,7 +41,7 @@ func AgreeToBet(db *sqlx.DB, betId int, userN int, agreed bool) (int, error) {
 		statusUpdate = ", bet_status = 4 " // TODO formalize bet_status enumeration. using 4 to mean 'declined' here
 	}
 
-	row := db.QueryRow("UPDATE bet "+
+	row := q.QueryRowx("UPDATE bet "+
 		"SET "+userNagreed+" = $1 "+statusUpdate+
 		"WHERE bet_id = $2 "+
 		"RETURNING bet_id",
@@ -55,10 +53,10 @@ func AgreeToBet(db *sqlx.DB, betId int, userN int, agreed bool) (int, error) {
 	return id, nil
 }
 
-func UpdateBet(db *sqlx.DB, bet *Bet) (int, error) {
+func UpdateBet(q Querier, bet *Bet) (int, error) {
 	var id int
 
-	row := db.QueryRow("UPDATE bet "+
+	row := q.QueryRowx("UPDATE bet "+
 		"SET bet_status = $1, "+
 		"amount1 = $2, outcome1odds = $3, user1agreed = $4, user1id = $5, "+
 		"amount2 = $6, outcome2odds = $7, user2agreed = $8, user2id = $9, "+
@@ -74,20 +72,20 @@ func UpdateBet(db *sqlx.DB, bet *Bet) (int, error) {
 	return id, nil
 }
 
-// func VoidBet(db *sqlx.DB, bet *Bet) (int, error) {
+// func VoidBet(q Querier, bet *Bet) (int, error) {
 // }
 
-// func UpdateAmountBet(db *sqlx.DB, bet *Bet) (int, error) {
+// func UpdateAmountBet(q Querier, bet *Bet) (int, error) {
 // }
 
 // SELECT
 
 // many
 
-func BetsByUser(db *sql.DB, user_id int) ([]Bet, error) {
+func BetsByUser(q Querier, user_id int) ([]Bet, error) {
 	var bets []Bet
 
-	rows, err := db.Query("SELECT * FROM bet WHERE user1id = $1 OR user2id = $1", user_id)
+	rows, err := q.Query("SELECT * FROM bet WHERE user1id = $1 OR user2id = $1", user_id)
 	if err != nil {
 		return nil, fmt.Errorf("\n\n\nERROR running the query: %v", err)
 	}
@@ -110,10 +108,10 @@ func BetsByUser(db *sql.DB, user_id int) ([]Bet, error) {
 	return bets, nil
 }
 
-func BetsByOfferedBet(db *sqlx.DB, offeredBetId int) ([]Bet, error) {
+func BetsByOfferedBet(q Querier, offeredBetId int) ([]Bet, error) {
 	var bets []Bet
 
-	err := db.Select(&bets, "SELECT * FROM bet WHERE offered_bet_id = $1", offeredBetId)
+	err := q.Select(&bets, "SELECT * FROM bet WHERE offered_bet_id = $1", offeredBetId)
 	if err != nil {
 		return nil, fmt.Errorf("BetsByOfferedBet %v", err)
 	}
@@ -121,9 +119,9 @@ func BetsByOfferedBet(db *sqlx.DB, offeredBetId int) ([]Bet, error) {
 }
 
 // joins
-func BetAndUsersByBetId(db *sqlx.DB, betId int) (*BetAndUser, error) {
+func BetAndUsersByBetId(q Querier, betId int) (*BetAndUser, error) {
 	var bet BetAndUser
-	err := db.Get(&bet, "SELECT bet_id, bet_status, amount1, point_spread, bet.outcome1odds, user1agreed, "+
+	err := q.Get(&bet, "SELECT bet_id, bet_status, amount1, point_spread, bet.outcome1odds, user1agreed, "+
 		"amount2, bet.outcome2odds, user2agreed, settled, offered_bet_id, "+
 		"user1id, u1.username AS username1, u1.balance AS balance1, "+
 		"user2id, u2.username AS username2, u2.balance AS balance2 "+
@@ -138,9 +136,9 @@ func BetAndUsersByBetId(db *sqlx.DB, betId int) (*BetAndUser, error) {
 	return &bet, nil
 }
 
-func BetsAndObsAndUsersByUserId(db *sqlx.DB, userId int) ([]BetAndUser, error) {
+func BetsAndObsAndUsersByUserId(q Querier, userId int) ([]BetAndUser, error) {
 	var bets []BetAndUser
-	err := db.Select(&bets, "SELECT bet_id, bet_status, amount1, bet.point_spread AS point_spread, bet.outcome1odds, user1agreed, "+
+	err := q.Select(&bets, "SELECT bet_id, bet_status, amount1, bet.point_spread AS point_spread, bet.outcome1odds, user1agreed, "+
 		"amount2, bet.outcome2odds, user2agreed, settled, "+
 		"user1id, u1.username AS username1, u1.balance AS balance1, "+
 		"user2id, u2.username AS username2, u2.balance AS balance2, "+
@@ -158,10 +156,10 @@ func BetsAndObsAndUsersByUserId(db *sqlx.DB, userId int) ([]BetAndUser, error) {
 
 // one
 
-func OneBet(db *sqlx.DB, betId int) (Bet, error) {
+func OneBet(q Querier, betId int) (Bet, error) {
 	var bet Bet
 
-	err := db.Get(&bet, "SELECT * FROM bet WHERE bet_id = $1", betId)
+	err := q.Get(&bet, "SELECT * FROM bet WHERE bet_id = $1", betId)
 	if err != nil {
 		return bet, fmt.Errorf("OneOfferedBet %d: %v", betId, err)
 	}

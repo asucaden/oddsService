@@ -5,19 +5,22 @@ import (
 	"log"
 	"time"
 
-	"github.com/asucaden/oddsService/auth"
+	"github.com/asucaden/goBet/auth"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 )
 
 // TODO improve performance using transactions or concurrency
 func SeedDb(db *sqlx.DB) {
+	fmt.Println("Begin seeding")
+	tx := db.MustBegin()
 
 	// Clear all existing tables
-	db.MustExec("DROP TABLE IF EXISTS users CASCADE")
-	db.MustExec("DROP TABLE IF EXISTS competition CASCADE")
-	db.MustExec("DROP TABLE IF EXISTS offered_bet CASCADE")
-	db.MustExec("DROP TABLE IF EXISTS bet CASCADE")
+	tx.MustExec("DROP TABLE IF EXISTS users CASCADE")
+	tx.MustExec("DROP TABLE IF EXISTS competition CASCADE")
+	tx.MustExec("DROP TABLE IF EXISTS offered_bet CASCADE")
+	tx.MustExec("DROP TABLE IF EXISTS bet CASCADE")
+	fmt.Println("Tables dropped")
 
 	// Create tables
 	schema := `
@@ -65,34 +68,45 @@ func SeedDb(db *sqlx.DB) {
 			settled         boolean NOT NULL
 		);
 	`
-	db.MustExec(schema)
+	tx.MustExec(schema)
+	fmt.Println("Schema created")
 
 	// Populate tables
 	// Users
-	mustHashPass := func(password string) string {
+	mustHashPass := func(password string, ch chan string) {
 		hash, err := auth.HashPassword(password)
 		if err != nil {
 			log.Fatal(err.Error())
 		}
-		return hash
+		ch <- hash
 	}
 	mustAddUser := func(user *User) int {
-		id, err := AddUser(db, user)
+		id, err := AddUser(tx, user)
 		if err != nil {
 			log.Fatal(err.Error())
 		}
 		return id
 	}
-	uid0 := mustAddUser(&User{Username: "the house", Hash: mustHashPass("admin"), Balance: 1000000.0})
-	uid1 := mustAddUser(&User{Username: "Caden M", Hash: mustHashPass("password"), Balance: 0.0})
-	uid2 := mustAddUser(&User{Username: "Parker B", Hash: mustHashPass("password"), Balance: 0.0})
-	uid3 := mustAddUser(&User{Username: "Ryan E", Hash: mustHashPass("password"), Balance: 0.0})
-	uid4 := mustAddUser(&User{Username: "Alec V", Hash: mustHashPass("password"), Balance: 0.0})
-	uid5 := mustAddUser(&User{Username: "Tanner B", Hash: mustHashPass("password"), Balance: 0.0})
+
+	ch0, ch1, ch2, ch3, ch4, ch5 := make(chan string), make(chan string), make(chan string), make(chan string), make(chan string), make(chan string)
+	go mustHashPass("admin", ch0)
+	go mustHashPass("password", ch1)
+	go mustHashPass("password", ch2)
+	go mustHashPass("password", ch3)
+	go mustHashPass("password", ch4)
+	go mustHashPass("password", ch5)
+
+	uid0 := mustAddUser(&User{Username: "the house", Hash: <-ch0, Balance: 1000000.0})
+	uid1 := mustAddUser(&User{Username: "Caden M", Hash: <-ch1, Balance: 0.0})
+	uid2 := mustAddUser(&User{Username: "Parker B", Hash: <-ch2, Balance: 0.0})
+	uid3 := mustAddUser(&User{Username: "Ryan E", Hash: <-ch3, Balance: 0.0})
+	uid4 := mustAddUser(&User{Username: "Alec V", Hash: <-ch4, Balance: 0.0})
+	uid5 := mustAddUser(&User{Username: "Tanner B", Hash: <-ch5, Balance: 0.0})
+	fmt.Println("Users added")
 
 	// Competitions
 	mustAddCompetition := func(competition *Competition) string {
-		id, err := AddCompetition(db, competition)
+		id, err := AddCompetition(tx, competition)
 		if err != nil {
 			log.Fatal(err.Error())
 		}
@@ -109,10 +123,11 @@ func SeedDb(db *sqlx.DB) {
 	cid0 := mustAddCompetition(&Competition{CompetitionId: "1", CompetitionName: "Nba Finals Game 5", EventStatus: 2, EventDate: mustParseTime("2024-06-17T00:00:00Z")})
 	cid1 := mustAddCompetition(&Competition{CompetitionId: "2", CompetitionName: "Olympics 1500m Men's Final", EventStatus: 1, EventDate: mustParseTime("2024-08-06T00:00:00Z")})
 	cid2 := mustAddCompetition(&Competition{CompetitionId: "3", CompetitionName: "USA Presidential Election", EventStatus: 1, EventDate: mustParseTime("2024-11-05T00:00:00Z")})
+	fmt.Println("Competitions added")
 
 	// Offered Bets
 	mustAddOfferedBet := func(ob *OfferedBet) int {
-		id, err := AddOfferedBet(db, ob)
+		id, err := AddOfferedBet(tx, ob)
 		if err != nil {
 			log.Fatal(err.Error())
 		}
@@ -123,10 +138,11 @@ func SeedDb(db *sqlx.DB) {
 	obid2 := mustAddOfferedBet(&OfferedBet{OfferedBetName: "Ingebrigtsen win", Outcome1: "Yes", Outcome1Odds: -120, Outcome2: "No", Outcome2Odds: 120, EventDate: mustParseTime("2024-08-06T00:00:00Z"), PointSpread: 0, EventStatus: 0, CompetitionId: cid1})
 	obid3 := mustAddOfferedBet(&OfferedBet{OfferedBetName: "Election winner", Outcome1: "Biden", Outcome1Odds: 110, Outcome2: "Trump", Outcome2Odds: -110, EventDate: mustParseTime("2024-11-05T00:00:00Z"), PointSpread: 0, EventStatus: 0, CompetitionId: cid2})
 	obid4 := mustAddOfferedBet(&OfferedBet{OfferedBetName: "Finals Point Spread", Outcome1: "Mavs win", Outcome1Odds: 100, Outcome2: "Celtics win", Outcome2Odds: -100, EventDate: mustParseTime("2024-06-17T00:00:00Z"), PointSpread: 3.5, EventStatus: 2, CompetitionId: cid0})
+	fmt.Println("Obs added")
 
 	// Bets
 	mustAddBet := func(bet *Bet) {
-		_, err := AddBet(db, bet)
+		_, err := AddBet(tx, bet)
 		if err != nil {
 			log.Fatal(err.Error())
 		}
@@ -138,6 +154,13 @@ func SeedDb(db *sqlx.DB) {
 	mustAddBet(&Bet{BetStatus: 0, Amount1: 12000, Outcome1Odds: -120, User1Agreed: true, User1Id: uid3, Amount2: 10000, Outcome2Odds: 120, User2Agreed: true, User2Id: uid1, Customized: false, PointSpread: 0, OfferedBetId: obid2, Settled: false})
 	mustAddBet(&Bet{BetStatus: 0, Amount1: 1100, Outcome1Odds: -110, User1Agreed: true, User1Id: uid3, Amount2: 1000, Outcome2Odds: 110, User2Agreed: false, User2Id: uid5, Customized: false, PointSpread: 0, OfferedBetId: obid3, Settled: false})
 	mustAddBet(&Bet{BetStatus: 2, Amount1: 1100, Outcome1Odds: -100, User1Agreed: true, User1Id: uid3, Amount2: 1100, Outcome2Odds: 100, User2Agreed: false, User2Id: uid5, Customized: false, PointSpread: 3.5, OfferedBetId: obid4, Settled: false})
+	fmt.Println("Bets added")
+
+	err := tx.Commit()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Commited")
 
 	fmt.Println("DB seeded!")
 }

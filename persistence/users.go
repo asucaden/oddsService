@@ -5,14 +5,13 @@ import (
 	"fmt"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/jmoiron/sqlx"
 )
 
 // INSERT
-func AddUser(db *sqlx.DB, user *User) (int, error) {
+func AddUser(q Querier, user *User) (int, error) {
 	var id int
 
-	row := db.QueryRow("INSERT INTO users (username, balance, hash)"+
+	row := q.QueryRowx("INSERT INTO users (username, balance, hash)"+
 		"VALUES ($1, $2, $3)"+
 		"RETURNING user_id",
 		user.Username, user.Balance, user.Hash)
@@ -27,9 +26,9 @@ func AddUser(db *sqlx.DB, user *User) (int, error) {
 // SELECT
 
 // many
-func AllUsers(db *sql.DB) ([]User, error) {
+func AllUsers(q Querier) ([]User, error) {
 	var users []User
-	rows, err := db.Query("SELECT * FROM users")
+	rows, err := q.Query("SELECT * FROM users")
 	if err != nil {
 		return nil, fmt.Errorf("ERROR running the query: %v", err)
 	}
@@ -51,10 +50,10 @@ func AllUsers(db *sql.DB) ([]User, error) {
 
 // one
 
-func OneUser(db *sqlx.DB, userId int) (User, error) {
+func OneUser(q Querier, userId int) (User, error) {
 	var user User
 
-	err := db.Get(&user, "SELECT * FROM users WHERE user_id = $1", userId)
+	err := q.Get(&user, "SELECT * FROM users WHERE user_id = $1", userId)
 	if err != nil {
 		return user, fmt.Errorf("OneCompetition %d: %v", userId, err)
 	}
@@ -62,10 +61,10 @@ func OneUser(db *sqlx.DB, userId int) (User, error) {
 }
 
 // case insensitive
-func OneUserByName(db *sqlx.DB, username string) (User, error) {
+func OneUserByName(q Querier, username string) (User, error) {
 	var user User
 
-	err := db.Get(&user, "SELECT * FROM users WHERE username ILIKE $1", username)
+	err := q.Get(&user, "SELECT * FROM users WHERE username ILIKE $1", username)
 	if err != nil {
 		return user, fmt.Errorf("OneUserByName %s: %v", username, err)
 	}
@@ -74,10 +73,10 @@ func OneUserByName(db *sqlx.DB, username string) (User, error) {
 
 // one partial
 
-func OneUsername(db *sqlx.DB, userId int) (string, error) {
+func OneUsername(q Querier, userId int) (string, error) {
 	var username string
 
-	err := db.Get(&username, "SELECT username FROM users WHERE user_id = $1", userId)
+	err := q.Get(&username, "SELECT username FROM users WHERE user_id = $1", userId)
 	if err != nil {
 		return username, fmt.Errorf("OneCompetition %s: %v", username, err)
 	}
@@ -85,10 +84,10 @@ func OneUsername(db *sqlx.DB, userId int) (string, error) {
 }
 
 // case insensitive
-func OneUserIdByName(db *sqlx.DB, username string) (int, error) {
+func OneUserIdByName(q Querier, username string) (int, error) {
 	var userId int
 
-	err := db.Get(&userId, "SELECT user_id FROM users WHERE username ILIKE $1", username)
+	err := q.Get(&userId, "SELECT user_id FROM users WHERE username ILIKE $1", username)
 	if err != nil {
 		return userId, fmt.Errorf("OneCompetition %s: %v", username, err)
 	}
@@ -96,10 +95,10 @@ func OneUserIdByName(db *sqlx.DB, username string) (int, error) {
 }
 
 // case insensitive
-func OneHashByName(db *sqlx.DB, username string) (string, error) {
+func OneHashByName(q Querier, username string) (string, error) {
 	var hash string
 
-	err := db.Get(&hash, "SELECT hash FROM users WHERE username ILIKE $1", username)
+	err := q.Get(&hash, "SELECT hash FROM users WHERE username ILIKE $1", username)
 	if err != nil {
 		return hash, fmt.Errorf("OneHashByName %s: %v", username, err)
 	}
@@ -107,18 +106,18 @@ func OneHashByName(db *sqlx.DB, username string) (string, error) {
 }
 
 // counts
-func CountUserWinLoss(db *sqlx.DB, userId int) (int, int, error) {
+func CountUserWinLoss(q Querier, userId int) (int, int, error) {
 	var betsWon int
 	var betsLost int
 
-	err := db.Get(&betsWon, "SELECT COUNT(bet_id) FROM bet "+
+	err := q.Get(&betsWon, "SELECT COUNT(bet_id) FROM bet "+
 		"WHERE (bet_status = 1 AND user1id = $1) "+
 		"OR (bet_status = 2 AND user2id = $1)", userId)
 	if err != nil {
 		return 0, 0, fmt.Errorf("UserWinLoss: %s", err.Error())
 	}
 
-	err = db.Get(&betsLost, "SELECT COUNT(bet_id) FROM bet "+
+	err = q.Get(&betsLost, "SELECT COUNT(bet_id) FROM bet "+
 		"WHERE (bet_status = 1 AND user2id = $1) "+
 		"OR (bet_status = 2 AND user1id = $1)", userId)
 	if err != nil {
@@ -133,8 +132,8 @@ func CountUserWinLoss(db *sqlx.DB, userId int) (int, int, error) {
 
 // case insensitive
 // true means username can be used, false means it cannot be used
-func CheckUsername(db *sqlx.DB, username string) (bool, error) {
-	row := db.QueryRow("SELECT hash FROM users WHERE username ILIKE $1", username)
+func CheckUsername(q Querier, username string) (bool, error) {
+	row := q.QueryRowx("SELECT hash FROM users WHERE username ILIKE $1", username)
 	if err := row.Scan(); err != nil {
 		if err == sql.ErrNoRows {
 			return true, nil

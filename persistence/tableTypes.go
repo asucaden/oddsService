@@ -1,6 +1,17 @@
 package persistence
 
-import "time"
+import (
+	"time"
+
+	"github.com/jmoiron/sqlx"
+)
+
+type Querier interface {
+	sqlx.Execer
+	sqlx.Queryer
+	Select(dest interface{}, query string, args ...interface{}) error
+	Get(dest interface{}, query string, args ...interface{}) error
+}
 
 type User struct {
 	UserId   int `db:"user_id"`

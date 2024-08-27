@@ -3,7 +3,7 @@ package data
 import (
 	"time"
 
-	"github.com/asucaden/oddsService/persistence"
+	"github.com/asucaden/goBet/persistence"
 )
 
 type OfferedBetView struct {

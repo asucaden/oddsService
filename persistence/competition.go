@@ -4,14 +4,12 @@ import (
 	"fmt"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/jmoiron/sqlx"
 )
 
-// INSERT
-func AddCompetition(db *sqlx.DB, competition *Competition) (string, error) {
+func AddCompetition(q Querier, competition *Competition) (string, error) {
 	var id string
 
-	row := db.QueryRow("INSERT INTO competition (competition_id, competition_name, event_status, event_date)"+
+	row := q.QueryRowx("INSERT INTO competition (competition_id, competition_name, event_status, event_date)"+
 		"VALUES ($1, $2, $3, $4)"+
 		"RETURNING competition_id",
 		competition.CompetitionId, competition.CompetitionName, competition.EventStatus, competition.EventDate)
@@ -26,9 +24,9 @@ func AddCompetition(db *sqlx.DB, competition *Competition) (string, error) {
 // SELECT
 
 // many
-func AllCompetitions(db *sqlx.DB) ([]Competition, error) {
+func AllCompetitions(q Querier) ([]Competition, error) {
 	var competitions []Competition
-	rows, err := db.Query("SELECT * FROM competition")
+	rows, err := q.Query("SELECT * FROM competition")
 	if err != nil {
 		return nil, fmt.Errorf("ERROR running the query: %v", err)
 	}
@@ -50,10 +48,10 @@ func AllCompetitions(db *sqlx.DB) ([]Competition, error) {
 
 // one
 
-func OneCompetition(db *sqlx.DB, competitionId string) (Competition, error) {
+func OneCompetition(q Querier, competitionId string) (Competition, error) {
 	var competition Competition
 
-	err := db.Get(&competition, "SELECT * FROM competition WHERE competition_id = $1", competitionId)
+	err := q.Get(&competition, "SELECT * FROM competition WHERE competition_id = $1", competitionId)
 	if err != nil {
 		return competition, fmt.Errorf("OneCompetition %s: %v", competitionId, err)
 	}
